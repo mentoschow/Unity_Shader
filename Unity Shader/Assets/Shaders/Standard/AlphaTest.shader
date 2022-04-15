@@ -4,7 +4,7 @@ Shader "Unlit/AlphaTest"
     {
         _MainTex ("Texture", 2D) = "white" {}
         _Color ("Main Tint", Color) = (1,1,1,1)
-        _CutOff ("Alpha Cut Off", Range(0,1)) = 0.5
+        _Cutoff ("Alpha Cut Off", Range(0,1)) = 0.5
     }
     SubShader
     {
@@ -18,6 +18,7 @@ Shader "Unlit/AlphaTest"
 
             #include "UnityCG.cginc"
             #include "Lighting.cginc"
+            #include "AutoLight.cginc"
 
             struct a2v
             {
@@ -32,12 +33,13 @@ Shader "Unlit/AlphaTest"
                 float4 pos : SV_POSITION;
                 float3 worldNormal : TEXCOORD1;
                 float3 worldPos : TEXCOORD2;
+                SHADOW_COORDS(3)
             };
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
             fixed4 _Color;
-            fixed _CutOff;
+            fixed _Cutoff;
 
             v2f vert (a2v v)
             {
@@ -47,6 +49,7 @@ Shader "Unlit/AlphaTest"
                 o.worldNormal = UnityObjectToWorldNormal(v.normal);
                 o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
                 o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
+                TRANSFER_SHADOW(o);
 
                 return o;
             }
@@ -59,13 +62,15 @@ Shader "Unlit/AlphaTest"
                 fixed4 texColor = tex2D(_MainTex, i.uv);
 
                 //Alpha Test
-                clip(texColor.a - _CutOff);
+                clip(texColor.a - _Cutoff);
                 
                 fixed3 albedo = texColor.rgb * _Color.rgb;
                 fixed3 ambient = UNITY_LIGHTMODEL_AMBIENT.xyz * albedo;
                 fixed3 diffuse = _LightColor0.rgb * albedo * max(0, dot(worldNormal, worldLightDir));
+
+                UNITY_LIGHT_ATTENUATION(attenuation, i, i.worldPos);
                 
-                fixed4 col = fixed4(ambient + diffuse, 1.0);
+                fixed4 col = fixed4((ambient + diffuse) * attenuation, 1.0);
 
                 return col;
             }
